@@ -1,9 +1,22 @@
 {
-    "entryPoints": ["./src/index.ts"],
-    "excludePrivate": true,
-    "excludeProtected": true,
-    "excludeExternals": true,
-    "includeVersion": false,
-    "out": "docs",
-    "gaID": "G-WBY63HR4VS"
+  "compilerOptions": {
+    "target": "es2018",
+    "module": "CommonJS",
+    "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "allowJs": false,
+    "checkJs": false,
+    "outDir": "lib",
+    "strict": false,
+    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "noImplicitThis": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "lib": ["es2020", "esnext.array", "DOM"]
+  },
+  "include": ["./src/**/*.ts"],
+  "exclude": ["node_modules", "src/Tests/*", "src/Binary/GenerateStatics.ts"]
 }
