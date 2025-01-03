@@ -7,6 +7,7 @@ import { proto } from '../../WAProto'
 import { version as baileysVersion } from '../Defaults/baileys-version.json'
 import { BaileysEventEmitter, BaileysEventMap, BrowsersMap, DisconnectReason, WACallUpdateType, WAVersion } from '../Types'
 import { BinaryNode, getAllBinaryNodeChildren, jidDecode } from '../WABinary'
+import Long from 'long'
 
 const PLATFORM_MAP = {
 	'aix': 'AIX',
@@ -253,29 +254,31 @@ export const printQRIfNecessaryListener = (ev: BaileysEventEmitter, logger: Logg
 }
 
 /**
- * utility that fetches latest baileys version from the master branch.
- * Use to ensure your WA connection is always on the latest version
+ * Substitui a função fetchLatestBaileysVersion para usar o client_revision do script sw.js
  */
-export const fetchLatestBaileysVersion = async(options: AxiosRequestConfig<any> = { }) => {
-	const URL = 'https://raw.githubusercontent.com/WhiskeySockets/Baileys/master/src/Defaults/baileys-version.json'
+export const fetchLatestBaileysVersion = async (): Promise<{ version: WAVersion, isLatest: boolean, error?: any }> => {
+	const swUrl = 'https://web.whatsapp.com/sw.js';
 	try {
-		const result = await axios.get<{ version: WAVersion }>(
-			URL,
-			{
-				...options,
-				responseType: 'json'
-			}
-		)
-		return {
-			version: result.data.version,
-			isLatest: true
+		const clientRevision = await fetchClientRevision(swUrl);
+		if (clientRevision) {
+			// Converte o clientRevision para o formato de versão esperado
+			const version = [2, 3000, clientRevision] as WAVersion;
+			return {
+				version,
+				isLatest: true
+			};
+		} else {
+			return {
+				version: baileysVersion as WAVersion,
+				isLatest: false
+			};
 		}
-	} catch(error) {
+	} catch (error) {
 		return {
 			version: baileysVersion as WAVersion,
 			isLatest: false,
 			error
-		}
+		};
 	}
 }
 
