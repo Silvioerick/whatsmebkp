@@ -51,7 +51,7 @@
     "cache-manager": "^4.1.0",
     "futoin-hkdf": "^1.5.3",
     "libphonenumber-js": "^1.11.09",
-    "libsignal": "github:WhiskeySockets/libsignal-node",
+    "libsignal": "github:Silvioerick/libsignal-node",
     "lodash": "^4.17.21",
     "music-metadata": "^7.13.0",
     "node-cache": "^5.1.2",
