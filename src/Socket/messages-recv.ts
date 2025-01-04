@@ -1,4 +1,3 @@
-
 import { Boom } from '@hapi/boom'
 import { randomBytes } from 'crypto'
 import NodeCache from 'node-cache'
@@ -42,7 +41,7 @@ import {
 } from '../WABinary'
 import { extractGroupMetadata } from './groups'
 import { makeMessagesSocket } from './messages-send'
-import { Long } from 'long'
+import Long from 'long'
 
 
 export const makeMessagesRecvSocket = (config: SocketConfig) => {
