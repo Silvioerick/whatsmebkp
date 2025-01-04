@@ -7,6 +7,7 @@ import { areJidsSameUser, isJidBroadcast, isJidStatusBroadcast, jidNormalizedUse
 import { aesDecryptGCM, hmacSign } from './crypto'
 import { getKeyAuthor, toNumber } from './generics'
 import { downloadAndProcessHistorySyncNotification } from './history'
+import Long from 'long'
 
 type ProcessMessageContext = {
 	shouldProcessHistoryMsg: boolean

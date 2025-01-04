@@ -41,6 +41,7 @@ import {
 } from '../WABinary'
 import { extractGroupMetadata } from './groups'
 import { makeMessagesSocket } from './messages-send'
+import Long from 'long'
 
 export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	const {
