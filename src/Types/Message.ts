@@ -4,7 +4,6 @@ import type { Readable } from 'stream'
 import type { URL } from 'url'
 import { proto } from '../../WAProto'
 import { MEDIA_HKDF_KEY_MAPPING } from '../Defaults'
-import { BinaryNode } from '../WABinary'
 import type { GroupMetadata } from './GroupMetadata'
 import { CacheStore } from './Socket'
 
@@ -23,9 +22,7 @@ export type WAGenericMediaMessage = proto.Message.IVideoMessage | proto.Message.
 export import WAMessageStubType = proto.WebMessageInfo.StubType
 // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
 export import WAMessageStatus = proto.WebMessageInfo.Status
-export type WAMediaPayloadURL = { url: URL | string }
-export type WAMediaPayloadStream = { stream: Readable }
-export type WAMediaUpload = Buffer | WAMediaPayloadStream | WAMediaPayloadURL
+export type WAMediaUpload = Buffer | { url: URL | string } | { stream: Readable }
 /** Set of message types that are supported by the library */
 export type MessageType = keyof proto.Message
 
