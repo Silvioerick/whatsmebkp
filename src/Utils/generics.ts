@@ -393,6 +393,7 @@ export const getCodeFromWSError = (error: Error) => {
 			statusCode = code
 		}
 	} else if(
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		(error as any)?.code?.startsWith('E')
 		|| error?.message?.includes('timed out')
 	) { // handle ETIMEOUT, ENOTFOUND etc
@@ -410,7 +411,8 @@ export const isWABusinessPlatform = (platform: string) => {
 	return platform === 'smbi' || platform === 'smba'
 }
 
-export function trimUndefined(obj: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function trimUndefined(obj: {[_: string]: any}) {
 	for(const key in obj) {
 		if(typeof obj[key] === 'undefined') {
 			delete obj[key]
@@ -427,8 +429,8 @@ export function bytesToCrockford(buffer: Buffer): string {
 	let bitCount = 0
 	const crockford: string[] = []
 
-	for(let i = 0; i < buffer.length; i++) {
-		value = (value << 8) | (buffer[i] & 0xff)
+	for(const element of buffer) {
+		value = (value << 8) | (element & 0xff)
 		bitCount += 8
 
 		while(bitCount >= 5) {
