@@ -1,14 +1,14 @@
-import { caching } from 'cache-manager'
-import type { Cache, Store } from 'cache-manager'
+import { createCache } from 'cache-manager'
+import type { Cache, StoreConfig } from 'cache-manager'
 import { proto } from '../../WAProto'
 import { AuthenticationCreds } from '../Types'
 import { BufferJSON, initAuthCreds } from '../Utils'
 import logger from '../Utils/logger'
 
-const makeCacheManagerAuthState = async(store: Store, sessionKey: string) => {
+const makeCacheManagerAuthState = async(store: StoreConfig, sessionKey: string) => {
 	const defaultKey = (file: string): string => `${sessionKey}:${file}`
 
-	const databaseConn: Cache = await caching(store)
+	const databaseConn: Cache = await createCache(store)
 
 	const writeData = async(file: string, data: object) => {
 		let ttl: number | undefined = undefined
@@ -48,7 +48,7 @@ const makeCacheManagerAuthState = async(store: Store, sessionKey: string) => {
 
 	const clearState = async() => {
 		try {
-			const result = await databaseConn.store?.keys(`${sessionKey}*`) || []
+			const result = await databaseConn.stores?.[0].keys(`${sessionKey}*`) || []
 			await Promise.all(
 				result.map(async(key) => await databaseConn.del(key))
 			)
