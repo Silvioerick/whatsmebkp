@@ -1,18 +1,13 @@
-import { createCache, Cache } from 'cache-manager'
-import memoryStore from '@andescalada/cache-manager-memory-store'
+import { caching, Store } from 'cache-manager'
 import { proto } from '../../WAProto'
 import { AuthenticationCreds } from '../Types'
 import { BufferJSON, initAuthCreds } from '../Utils'
 import logger from '../Utils/logger'
 
-const makeCacheManagerAuthState = async(sessionKey: string) => {
+const makeCacheManagerAuthState = async(store: Store, sessionKey: string) => {
 	const defaultKey = (file: string): string => `${sessionKey}:${file}`
 
-	const databaseConn: Cache = await createCache({
-		store: memoryStore,
-		max: 100,
-		ttl: 60 // seg
-	})
+	const databaseConn = await caching(store)
 
 	const writeData = async(file: string, data: object) => {
 		let ttl: number | undefined = undefined
@@ -52,12 +47,11 @@ const makeCacheManagerAuthState = async(sessionKey: string) => {
 
 	const clearState = async() => {
 		try {
-			const result = await databaseConn.stores?.[0].keys(`${sessionKey}*`) || []
+			const result = await databaseConn.store.keys(`${sessionKey}*`)
 			await Promise.all(
 				result.map(async(key) => await databaseConn.del(key))
 			)
 		} catch(err) {
-			logger.error(err)
 		}
 	}
 
@@ -86,7 +80,8 @@ const makeCacheManagerAuthState = async(sessionKey: string) => {
 					return data
 				},
 				set: async(data) => {
-					const tasks: Promise<void>[] = []
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					const tasks: Promise<any>[] = []
 					for(const category in data) {
 						for(const id in data[category]) {
 							const value = data[category][id]
