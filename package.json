@@ -47,7 +47,7 @@
     "@hapi/boom": "^10.0.1",
     "async-lock": "^1.4.1",
     "audio-decode": "^2.2.2",
-    "axios": "^1.7.9",
+    "axios": "^1.7.7",
     "bottleneck": "^2.19.5",
     "cache-manager": "^4.1.0",
     "futoin-hkdf": "^1.5.3",
