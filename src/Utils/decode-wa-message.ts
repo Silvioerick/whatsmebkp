@@ -21,8 +21,7 @@ export function decodeMessageNode(
 	let msgType: MessageType
 	let chatId: string
 	let author: string
-
-	const msgId = stanza.attrs.id
+	const msgId = stanza.attrs.id	
 	const from = stanza.attrs.from
 	const participant: string | undefined = stanza.attrs.participant
 	const recipient: string | undefined = stanza.attrs.recipient
@@ -121,14 +120,22 @@ export const decryptMessageNode = (
 	repository: SignalRepository,
 	logger: Logger
 ) => {
-	const { fullMessage, author, sender } = decodeMessageNode(stanza, meId, meLid)
+	const { fullMessage, author, sender } =  decodeMessageNode(stanza, meId, meLid)
 	return {
+				
 		fullMessage,
 		category: stanza.attrs.category,
 		author,
 		async decrypt() {
 			let decryptables = 0
 			if(Array.isArray(stanza.content)) {
+				
+				const user = isJidUser(sender) ? sender : author
+
+
+
+
+
 				for(const { tag, attrs, content } of stanza.content) {
 					if(tag === 'verified_name' && content instanceof Uint8Array) {
 						const cert = proto.VerifiedNameCertificate.decode(content)
@@ -136,7 +143,7 @@ export const decryptMessageNode = (
 						fullMessage.verifiedBizName = details.verifiedName
 					}
 
-					if(tag !== 'enc' && tag !== 'plaintext') {
+					if(tag !== 'enc' && tag !== 'plaintext' && tag !== 'reporting' ) {
 						continue
 					}
 
@@ -160,7 +167,7 @@ export const decryptMessageNode = (
 							break
 						case 'pkmsg':
 						case 'msg':
-							const user = isJidUser(sender) ? sender : author
+							
 							msgBuffer = await repository.decryptMessage({
 								jid: user,
 								type: e2eType,

@@ -5,31 +5,23 @@ import { platform, release } from 'os'
 import { Logger } from 'pino'
 import { proto } from '../../WAProto'
 import { version as baileysVersion } from '../Defaults/baileys-version.json'
-import { BaileysEventEmitter, BaileysEventMap, BrowsersMap, DisconnectReason, WACallUpdateType, WAVersion } from '../Types'
+import { BaileysEventEmitter, BaileysEventMap, DisconnectReason, WACallUpdateType, WAVersion } from '../Types'
 import { BinaryNode, getAllBinaryNodeChildren, jidDecode } from '../WABinary'
 
 const PLATFORM_MAP = {
 	'aix': 'AIX',
 	'darwin': 'Mac OS',
 	'win32': 'Windows',
-	'android': 'Android',
-	'freebsd': 'FreeBSD',
-	'openbsd': 'OpenBSD',
-	'sunos': 'Solaris'
+	'android': 'Android'
 }
 
-export const Browsers: BrowsersMap = {
-	ubuntu: (browser) => ['Ubuntu', browser, '22.04.4'],
-	macOS: (browser) => ['Mac OS', browser, '14.4.1'],
-	baileys: (browser) => ['Baileys', browser, '6.5.0'],
-	windows: (browser) => ['Windows', browser, '10.0.22631'],
+export const Browsers = {
+	ubuntu: browser => ['Ubuntu', browser, '20.0.04'] as [string, string, string],
+	macOS: browser => ['Mac OS', browser, '10.15.7'] as [string, string, string],
+	baileys: browser => ['Baileys', browser, '4.0.0'] as [string, string, string],
+	windows: browser => ['Windows', browser, '10.0.22621'] as [string, string, string],
 	/** The appropriate browser based on your OS & release */
-	appropriate: (browser) => [ PLATFORM_MAP[platform()] || 'Ubuntu', browser, release() ]
-}
-
-export const getPlatformId = (browser: string) => {
-	const platformType = proto.DeviceProps.PlatformType[browser.toUpperCase()]
-	return platformType ? platformType.toString().charCodeAt(0).toString() : '49' //chrome
+	appropriate: browser => [ PLATFORM_MAP[platform()] || 'Ubuntu', browser, release() ] as [string, string, string]
 }
 
 export const BufferJSON = {
@@ -181,22 +173,22 @@ export async function promiseTimeout<T>(ms: number | undefined, promise: (resolv
 // inspired from whatsmeow code
 // https://github.com/tulir/whatsmeow/blob/64bc969fbe78d31ae0dd443b8d4c80a5d026d07a/send.go#L42
 export const generateMessageIDV2 = (userId?: string): string => {
-	const data = Buffer.alloc(8 + 20 + 16)
-	data.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000)))
+  const data = Buffer.alloc(8 + 20 + 16)
+  data.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000)))
 
-	if (userId) {
-		const id = jidDecode(userId)
-		if (id?.user) {
-			data.write(id.user, 8)
-			data.write('@c.us', 8 + id.user.length)
-		}
+  if (userId) {
+	const id = jidDecode(userId)
+	if (id?.user) {
+		data.write(id.user, 8)
+		data.write('@c.us', 8 + id.user.length)
 	}
+  }
 
-	const random = randomBytes(16)
-	random.copy(data, 28)
+  const random = randomBytes(16)
+  random.copy(data, 28)
 
-	const hash = createHash('sha256').update(data).digest()
-	return '3EB0' + hash.toString('hex').toUpperCase().substring(0, 18)
+  const hash = createHash('sha256').update(data).digest()
+  return '3EB0' + hash.toString('hex').toUpperCase().substring(0, 18)
 }
 
 // generate a random ID to attach to a message
@@ -364,8 +356,7 @@ export const getCallStatusFromNode = ({ tag, attrs }: BinaryNode) => {
 		if(attrs.reason === 'timeout') {
 			status = 'timeout'
 		} else {
-			//fired when accepted/rejected/timeout/caller hangs up
-			status = 'terminate'
+			status = 'reject'
 		}
 
 		break

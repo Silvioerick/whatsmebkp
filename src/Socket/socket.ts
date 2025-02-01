@@ -29,11 +29,10 @@ import {
 	getCodeFromWSError,
 	getErrorCodeFromStreamError,
 	getNextPreKeysNode,
-	getPlatformId,
 	makeEventBuffer,
 	makeNoiseHandler,
 	printQRIfNecessaryListener,
-	promiseTimeout,
+	promiseTimeout
 } from '../Utils'
 import {
 	assertNodeErrorFree,
@@ -118,8 +117,8 @@ export const makeSocket = (config: SocketConfig) => {
 			throw new Boom('Connection Closed', { statusCode: DisconnectReason.connectionClosed })
 		}
 
-		const bytes = noise.encodeFrame(data)
-		await promiseTimeout<void>(
+		const bytes =  noise.encodeFrame(data)
+		const send = await promiseTimeout<void>(
 			connectTimeoutMs,
 			async(resolve, reject) => {
 				try {
@@ -130,6 +129,7 @@ export const makeSocket = (config: SocketConfig) => {
 				}
 			}
 		)
+		
 	}
 
 	/** send a binary node */
@@ -411,7 +411,7 @@ export const makeSocket = (config: SocketConfig) => {
 			})
 	}
 
-	const startKeepAliveRequest = () => (
+	 const startKeepAliveRequest = () => (
 		keepAliveReq = setInterval(() => {
 			if(!lastDateRecv) {
 				lastDateRecv = new Date()
@@ -526,7 +526,7 @@ export const makeSocket = (config: SocketConfig) => {
 						{
 							tag: 'companion_platform_id',
 							attrs: {},
-							content: getPlatformId(browser[1])
+							content: '49' // Chrome
 						},
 						{
 							tag: 'companion_platform_display',
@@ -548,7 +548,7 @@ export const makeSocket = (config: SocketConfig) => {
 	async function generatePairingKey() {
 		const salt = randomBytes(32)
 		const randomIv = randomBytes(16)
-		const key = await derivePairingCodeKey(authState.creds.pairingCode!, salt)
+		const key = derivePairingCodeKey(authState.creds.pairingCode!, salt)
 		const ciphered = aesEncryptCTR(authState.creds.pairingEphemeralKeyPair.public, key, randomIv)
 		return Buffer.concat([salt, randomIv, ciphered])
 	}

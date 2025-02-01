@@ -1,9 +1,9 @@
-## 6.7.8 (2024-09-22)
+## 6.7.5 (2024-06-12)
 
 
-### Features
+### Bug Fixes
 
-* add label feature ([#955](https://github.com/WhiskeySockets/Baileys/issues/955)) ([6ff9455](https://github.com/WhiskeySockets/Baileys/commit/6ff945502d9e78c42a1d05fca79f951e81b946df))
+* **master:** fix lockfile (after [#847](https://github.com/WhiskeySockets/Baileys/issues/847)) ([c964615](https://github.com/WhiskeySockets/Baileys/commit/c964615cf9b2eaaa6f72e2bd5fa660eb2ae9ab9b))
 
 
 

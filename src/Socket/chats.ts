@@ -1,14 +1,13 @@
 import { Boom } from '@hapi/boom'
-import NodeCache from 'node-cache'
 import { proto } from '../../WAProto'
-import { DEFAULT_CACHE_TTLS, PROCESSABLE_HISTORY_TYPES } from '../Defaults'
-import { ALL_WA_PATCH_NAMES, ChatModification, ChatMutation, LTHashState, MessageUpsertType, PresenceData, SocketConfig, WABusinessHoursConfig, WABusinessProfile, WAMediaUpload, WAMessage, WAPatchCreate, WAPatchName, WAPresence, WAPrivacyCallValue, WAPrivacyGroupAddValue, WAPrivacyOnlineValue, WAPrivacyValue, WAReadReceiptsValue } from '../Types'
-import { chatModificationToAppPatch, ChatMutationMap, decodePatches, decodeSyncdSnapshot, encodeSyncdPatch, extractSyncdPatches, generateProfilePicture, getHistoryMsg, newLTHashState, processSyncAction } from '../Utils'
+import { PROCESSABLE_HISTORY_TYPES } from '../Defaults'
+import { ALL_WA_PATCH_NAMES, ChatModification, ChatMutation, LTHashState, MessageUpsertType, PresenceData, SocketConfig, WABusinessHoursConfig, WABusinessProfile, WAMediaUpload, WAMessage, WAPatchCreate, WAPatchName, WAPresence, WAPrivacyOnlineValue, WAPrivacyValue, WAReadReceiptsValue } from '../Types'
+import { chatModificationToAppPatch, ChatMutationMap, decodePatches, decodeSyncdSnapshot, encodeSyncdPatch, extractSyncdPatches, generateProfilePicture, getHistoryMsg, newLTHashState, processSyncAction, delay } from '../Utils'
 import { makeMutex } from '../Utils/make-mutex'
 import processMessage from '../Utils/process-message'
 import { BinaryNode, getBinaryNodeChild, getBinaryNodeChildren, jidNormalizedUser, reduceBinaryNodeToDictionary, S_WHATSAPP_NET } from '../WABinary'
 import { makeSocket } from './socket'
-import { Label, LabelActionBody } from '../Types/Label'
+import { accessSync } from 'fs'
 
 const MAX_SYNC_ATTEMPTS = 2
 
@@ -37,15 +36,6 @@ export const makeChatsSocket = (config: SocketConfig) => {
 	let pendingAppStateSync = false
 	/** this mutex ensures that the notifications (receipts, messages etc.) are processed in order */
 	const processingMutex = makeMutex()
-
-	const placeholderResendCache = config.placeholderResendCache || new NodeCache({
-		stdTTL: DEFAULT_CACHE_TTLS.MSG_RETRY, // 1 hour
-		useClones: false
-	})
-
-	if(!config.placeholderResendCache) {
-		config.placeholderResendCache = placeholderResendCache
-	}
 
 	/** helper function to fetch the given app state sync key */
 	const getAppStateSyncKey = async(keyId: string) => {
@@ -94,10 +84,6 @@ export const makeChatsSocket = (config: SocketConfig) => {
 		})
 	}
 
-	const updateCallPrivacy = async(value: WAPrivacyCallValue) => {
-		await privacyQuery('calladd', value)
-	}
-
 	const updateLastSeenPrivacy = async(value: WAPrivacyValue) => {
 		await privacyQuery('last', value)
 	}
@@ -118,7 +104,7 @@ export const makeChatsSocket = (config: SocketConfig) => {
 		await privacyQuery('readreceipts', value)
 	}
 
-	const updateGroupsAddPrivacy = async(value: WAPrivacyGroupAddValue) => {
+	const updateGroupsAddPrivacy = async(value: WAPrivacyValue) => {
 		await privacyQuery('groupadd', value)
 	}
 
@@ -221,21 +207,11 @@ export const makeChatsSocket = (config: SocketConfig) => {
 
 	/** update the profile picture for yourself or a group */
 	const updateProfilePicture = async(jid: string, content: WAMediaUpload) => {
-		let targetJid;
-		if(!jid) {
-			throw new Boom('Illegal no-jid profile update. Please specify either your ID or the ID of the chat you wish to update')
-		}
-
-		if(jidNormalizedUser(jid) !== jidNormalizedUser(authState.creds.me!.id)) {
-			targetJid = jidNormalizedUser(jid) // in case it is someone other than us
-		}
-
 		const { img } = await generateProfilePicture(content)
 		await query({
 			tag: 'iq',
 			attrs: {
-				target: targetJid,
-				to: S_WHATSAPP_NET,
+				to: jidNormalizedUser(jid),
 				type: 'set',
 				xmlns: 'w:profile:picture'
 			},
@@ -251,20 +227,10 @@ export const makeChatsSocket = (config: SocketConfig) => {
 
 	/** remove the profile picture for yourself or a group */
 	const removeProfilePicture = async(jid: string) => {
-		let targetJid;
-		if(!jid) {
-			throw new Boom('Illegal no-jid profile update. Please specify either your ID or the ID of the chat you wish to update')
-		}
-
-		if(jidNormalizedUser(jid) !== jidNormalizedUser(authState.creds.me!.id)) {
-			targetJid = jidNormalizedUser(jid) // in case it is someone other than us
-		}
-
 		await query({
 			tag: 'iq',
 			attrs: {
-				target: targetJid,
-				to: S_WHATSAPP_NET,
+				to: jidNormalizedUser(jid),
 				type: 'set',
 				xmlns: 'w:profile:picture'
 			}
@@ -397,6 +363,8 @@ export const makeChatsSocket = (config: SocketConfig) => {
 		})
 	}
 
+	
+
 	const newAppStateChunkHandler = (isInitialSync: boolean) => {
 		return {
 			onMutation(mutation: ChatMutation) {
@@ -410,6 +378,39 @@ export const makeChatsSocket = (config: SocketConfig) => {
 			}
 		}
 	}
+	const forceReset =  async(restart: boolean) =>
+		{			
+			const props =  await fetchProps();
+			if(props?.attrs.refresh)
+				{
+				
+					const newDuration = Number(props?.attrs.refresh)
+					const newSyncTime = Math.floor(Date.now() / 1000); 
+				    ev.emit('creds.update', {	
+				     lastAccountSyncTimestamp: newSyncTime,
+					 processedHistoryMessages:[],					  					
+					   accountSettings: {
+						...authState.creds.accountSettings,
+						   defaultDisappearingMode: {
+							ephemeralExpiration: newDuration,
+							ephemeralSettingTimestamp: newSyncTime
+						},
+					}
+				})
+				await delay(2000);
+
+
+			}
+			newAppStateChunkHandler(true);  
+			await resyncAppState(['regular'], true);
+			await delay(5000);	
+			if(restart)
+			{				
+			    ws.close();
+				await delay(5000);
+				
+			}
+		}	
 
 	const resyncAppState = ev.createBufferedFunction(async(collections: readonly WAPatchName[], isInitialSync: boolean) => {
 		// we use this to determine which events to fire
@@ -751,6 +752,9 @@ export const makeChatsSocket = (config: SocketConfig) => {
 		}
 	}
 
+	
+	
+
 	/** sending non-abt props may fix QR scan fail if server expects */
 	const fetchProps = async() => {
 		const resultNode = await query({
@@ -773,13 +777,45 @@ export const makeChatsSocket = (config: SocketConfig) => {
 
 		let props: { [_: string]: string } = {}
 		if(propsNode) {
+			if(propsNode?.attrs?.hash)
+			{
 			authState.creds.lastPropHash = propsNode?.attrs?.hash
-			ev.emit('creds.update', authState.creds)
+			ev.emit('creds.update', authState.creds)			
+			}
 			props = reduceBinaryNodeToDictionary(propsNode, 'prop')
+
+
 		}
 
 		logger.debug('fetched props')
 
+		return propsNode
+	}
+
+	const fetchAbt = async() => {
+		const abtNode = await query({
+			tag: 'iq',
+			attrs: {
+				to: S_WHATSAPP_NET,
+				xmlns: 'abt',
+				type: 'get',
+			},
+			content: [
+				{ tag: 'props', attrs: { protocol: '1' } }
+			]
+		})
+		const propsNode = getBinaryNodeChild(abtNode, 'props')
+		let props: { [_: string]: string } = {}
+		if(propsNode) {
+			if(propsNode?.attrs?.hash)
+				{
+				authState.creds.lastPropHash = propsNode?.attrs?.hash
+				ev.emit('creds.update', authState.creds)			
+				}
+			props = reduceBinaryNodeToDictionary(propsNode, 'prop')
+		}
+
+		logger.debug('fetched abt')
 		return props
 	}
 
@@ -801,17 +837,6 @@ export const makeChatsSocket = (config: SocketConfig) => {
 			star: {
 				messages,
 				star
-			}
-		}, jid)
-	}
-
-	/**
-	 * Adds label
-	 */
-	const addLabel = (jid: string, labels: LabelActionBody) => {
-		return chatModify({
-			addLabel: {
-				...labels
 			}
 		}, jid)
 	}
@@ -875,19 +900,25 @@ export const makeChatsSocket = (config: SocketConfig) => {
 	}
 
 	const upsertMessage = ev.createBufferedFunction(async(msg: WAMessage, type: MessageUpsertType) => {
+		if(msg.messageStubType && msg.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT )
+		{			
+			ev.flush();
+			return;
+		}
+
 		ev.emit('messages.upsert', { messages: [msg], type })
 
-		if(!!msg.pushName) {
+		if (!msg.pushName) { 
 			let jid = msg.key.fromMe ? authState.creds.me!.id : (msg.key.participant || msg.key.remoteJid)
 			jid = jidNormalizedUser(jid!)
 
 			if(!msg.key.fromMe) {
-				ev.emit('contacts.update', [{ id: jid, notify: msg.pushName, verifiedName: msg.verifiedBizName! }])
+				ev.emit('contacts.update', [{ id: jid, notify: msg.pushName || undefined, verifiedName: msg.verifiedBizName! }])
 			}
 
 			// update our pushname too
-			if(msg.key.fromMe && msg.pushName && authState.creds.me?.name !== msg.pushName) {
-				ev.emit('creds.update', { me: { ...authState.creds.me!, name: msg.pushName } })
+			if(msg.key.fromMe && msg.pushName && authState.creds.me?.name !== msg.pushName|| undefined) {
+				ev.emit('creds.update', { me: { ...authState.creds.me!, name: msg.pushName || undefined } })
 			}
 		}
 
@@ -918,7 +949,6 @@ export const makeChatsSocket = (config: SocketConfig) => {
 				msg,
 				{
 					shouldProcessHistoryMsg,
-					placeholderResendCache,
 					ev,
 					creds: authState.creds,
 					keyStore: authState.keys,
@@ -1024,7 +1054,6 @@ export const makeChatsSocket = (config: SocketConfig) => {
 		updateProfileStatus,
 		updateProfileName,
 		updateBlockStatus,
-		updateCallPrivacy,
 		updateLastSeenPrivacy,
 		updateOnlinePrivacy,
 		updateProfilePicturePrivacy,
@@ -1036,11 +1065,15 @@ export const makeChatsSocket = (config: SocketConfig) => {
 		resyncAppState,
 		chatModify,
 		cleanDirtyBits,
-		addLabel,
 		addChatLabel,
 		removeChatLabel,
 		addMessageLabel,
 		removeMessageLabel,
-		star
+		star,
+		fetchProps,
+		fetchAbt,
+		forceReset
+		
+		
 	}
 }

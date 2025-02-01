@@ -1,25 +1,22 @@
 import { Boom } from '@hapi/boom'
 import NodeCache from 'node-cache'
 import readline from 'readline'
-import makeWASocket, { AnyMessageContent, BinaryInfo, delay, DisconnectReason, downloadAndProcessHistorySyncNotification, encodeWAM, fetchLatestBaileysVersion, getAggregateVotesInPollMessage, getHistoryMsg, isJidNewsletter, makeCacheableSignalKeyStore, makeInMemoryStore, PHONENUMBER_MCC, proto, useMultiFileAuthState, WAMessageContent, WAMessageKey, WAMessageStubType } from '../src'
-//import MAIN_LOGGER from '../src/Utils/logger'
+import makeWASocket, { AnyMessageContent, BinaryInfo, delay, DisconnectReason, encodeWAM, fetchLatestBaileysVersion, getAggregateVotesInPollMessage, makeCacheableSignalKeyStore, makeInMemoryStore, PHONENUMBER_MCC, proto, useMultiFileAuthState, WAMessageContent, WAMessageKey } from '../src'
+import MAIN_LOGGER from '../src/Utils/logger'
 import open from 'open'
 import fs from 'fs'
-import P from 'pino'
 
-const logger = P({ timestamp: () => `,"time":"${new Date().toJSON()}"` }, P.destination('./wa-logs.txt'))
+const logger = MAIN_LOGGER.child({})
 logger.level = 'trace'
 
 const useStore = !process.argv.includes('--no-store')
-const doReplies = process.argv.includes('--do-reply')
+const doReplies = !process.argv.includes('--no-reply')
 const usePairingCode = process.argv.includes('--use-pairing-code')
 const useMobile = process.argv.includes('--mobile')
 
 // external map to store retry counts of messages when decryption/encryption fails
 // keep this out of the socket itself, so as to prevent a message decryption/encryption loop across socket restarts
 const msgRetryCounterCache = new NodeCache()
-
-const onDemandMap = new Map<string, string>()
 
 // Read line interface
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -33,32 +30,6 @@ store?.readFromFile('./baileys_store_multi.json')
 setInterval(() => {
 	store?.writeToFile('./baileys_store_multi.json')
 }, 10_000)
-
-
-const filterMessages = (msg: any) => {
-  if (msg.message?.protocolMessage) {
-    if(msg.message.protocolMessage.type === 'MESSAGE_EDIT' || msg.message.protocolMessage.type === 'REVOKE') {
-      return true
-    }
-    return false
-  }
-  if(msg?.messageStubType === 2 && msg?.messageStubParameters[0] === 'Message absent from node') return true
-  if(msg?.messageStubParameters && msg?.messageStubParameters[0] === 'Key used already or never filled') return true
-  if (
-    [
-      WAMessageStubType.E2E_DEVICE_CHANGED,
-      WAMessageStubType.E2E_IDENTITY_CHANGED,
-      WAMessageStubType.CIPHERTEXT,
-      WAMessageStubType.CALL_MISSED_VOICE,
-      WAMessageStubType.CALL_MISSED_VIDEO,
-      WAMessageStubType.CALL_MISSED_GROUP_VOICE,
-      WAMessageStubType.CALL_MISSED_GROUP_VIDEO
-    ].includes(msg.messageStubType)
-  ) { return false }
-
-  return true
-}
-
 
 // start a connection
 const startSock = async() => {
@@ -260,191 +231,25 @@ const startSock = async() => {
 
 			// history received
 			if(events['messaging-history.set']) {
-				const { chats, contacts, messages, isLatest, progress, syncType } = events['messaging-history.set']
-				if (syncType === proto.HistorySync.HistorySyncType.ON_DEMAND) {
-					console.log('received on-demand history sync, messages=', messages)
-				}
-				console.log(`recv ${chats.length} chats, ${contacts.length} contacts, ${messages.length} msgs (is latest: ${isLatest}, progress: ${progress}%), type: ${syncType}`)
+				const { chats, contacts, messages, isLatest } = events['messaging-history.set']
+				console.log(`recv ${chats.length} chats, ${contacts.length} contacts, ${messages.length} msgs (is latest: ${isLatest})`)
 			}
 
 			// received a new message
 			if(events['messages.upsert']) {
 				const upsert = events['messages.upsert']
-				//console.log('recv messages ', JSON.stringify(upsert, undefined, 2))
-				let messagesArray = upsert?.messages?.filter(filterMessages).map((mensagem) => mensagem);
-				for (const message of messagesArray ){
-					
-					if(message.key.fromMe){
-						console.log('msg minha')
-						return
-					} else {
-						try{
-						console.log('msg chegou', JSON.stringify(message))
-						 
-						//console.log('message', JSON.stringify(message))
-							const buttons = [
-								{buttonId: 'id1', type: 2, buttonText: {displayText: 'Botao 1'}, nativeFlowInfo: {name: 'quick_reply', paramsJson: JSON.stringify({display_text: 'Botao 1', id: 'id1', disabled: false})}},
-								{buttonId: 'id2', buttonText: {displayText: 'Botao 2'}, type: 1},
-								{buttonId: 'id3', buttonText: {displayText: 'Botao 3'}, type: 1}
-							]
-							
-							const buttonMessage = {
-									text: "msg de botao",
-									footer: 'aaa',
-									buttons: buttons,
-									image: {
-										url: 'https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png',
-									},
-									title: ' titulo aqui',
-									caption: 'caption aqui'
-							}
-	
-							const templateButtons = [
-								//{index: 1, urlButton: {displayText: '⭐ Star Baileys on GitHub!', url: 'https://github.com/adiwajshing/Baileys'}},
-								//{index: 2, callButton: {displayText: 'Call me!', phoneNumber: '+1 (234) 5678-901'}},
-								{quickReplyButton: {displayText: 'This is a reply, just like normal buttons!', id: 'id-like-buttons-message'}},
-							]
-							
-							const templateMessage = {
-									text: "Hi it's a template message",
-									footer: 'Hello World',
-									templateButtons: templateButtons
-							}
+				console.log('recv messages ', JSON.stringify(upsert, undefined, 2))
 
-							const interactiveMessage: proto.Message.IInteractiveMessage = {
-								body: {
-									text: "e ai blz"
-								}, 
-								header: {
-									title: "olha que legal"
-								}, 
-								nativeFlowMessage: {
-									buttons: [
-										// {
-										// 	name: "quick_reply", 
-										// 	buttonParamsJson: "{\"display_text\":\"SIM\",\"id\":\"6deb1c2f-7863-45eb-8b11-17a8f8131288\",\"disabled\":false}"
-										// },
-										// {
-										{
-											name: "cta_url", 
-											buttonParamsJson: "{\"display_text\":\"Ir para Site2\",\"id\":\"aaaaaa-7863-45eb-8b11-17a8f8132388\",\"url\":\"https://www.google.com.br\",\"disabled\":false}"
-										},
-										{
-											name: "cta_copy",
-											buttonParamsJson: "{\"display_text\":\"Copiar Código\",\"id\":\"6deb1c2f-7863-45eb-8b11-17a8f8131288\",\"copy_code\":\"123456\",\"disabled\":false}"
-										}
-									]
-								}
-							}
-							const interactiveMessage3: proto.Message.IInteractiveMessage = {
-								body: {
-									text: "Copia o codigo"
-								}, 
-								header: {
-									title: "olha que legal"
-								}, 
-								nativeFlowMessage: {
-									buttons: [
-										{
-											name: "cta_copy",
-											buttonParamsJson: "{\"display_text\":\"Copiar Código\",\"id\":\"6deb1c2f-7863-45eb-8b11-17a8f8131288\",\"copy_code\":\"123456\",\"disabled\":false}"
-										}
-									]
-								}
-							}
-							const interactiveMessage2: proto.Message.IInteractiveMessage = {
-								body: {
-									text: "agora com resposta"
-								}, 
-								header: {
-									title: "olha que legal"
-								}, 
-								nativeFlowMessage: {
-									buttons: [
-										{
-											name: "quick_reply", 
-											buttonParamsJson: "{\"display_text\":\"LEGAL\",\"id\":\"6deb1c2f-7863-45eb-8b11-17a8f8131288\",\"disabled\":false}"
-										},
-										{
-											name: "quick_reply", 
-											buttonParamsJson: "{\"display_text\":\"IRADO\",\"id\":\"6deb1c2f-7863-45eb-8b11-17a8f8131288\",\"disabled\":false}"
-										},
-										{
-											name: "quick_reply", 
-											buttonParamsJson: "{\"display_text\":\"COOL\",\"id\":\"6deb1c2f-7863-45eb-8b11-17a8f8131288\",\"disabled\":false}"
-										}
-									
-									]
-								}
-							}
-							const messageToSend = {
-								interactiveMessage: interactiveMessage
-							}
-							const messageToSend2 = {
-								interactiveMessage: interactiveMessage2
-							}
-							const messageToSend3 = {
-								interactiveMessage: interactiveMessage3
-							}
-
-							const listMessage: any = {
-								
-										buttonText: 'oi',
-										description: 'ok',
-										footerText: 'footer',
-										listType: 1,
-										sections: [
-												{
-														title: "Comandos",
-														rows: [
-																{
-																		title: "Teste",
-																		description: "Testando",
-																		rowId: "testeee"
-																}
-														]
-												}
-										]
-							}
-							await sock.relayMessage(message.key.remoteJid!,
-								{
-										viewOnceMessageV2: {
-												message: {
-														listMessage: {
-																buttonText: 'oi',
-																description: 'ok',
-																footerText: 'footer',
-																listType: 1,
-																sections: [
-																		{
-																				title: "Comandos",
-																				rows: [
-																						{
-																								title: "Teste",
-																								description: "Testando",
-																								rowId: "testeee"
-																						}
-																				]
-																		}
-																]
-														}
-												}
-										}
-								},
-								{}
-						) 
-							await sock.sendMessage(message.key.remoteJid!, messageToSend2, {})
-							//await sock.sendMessage(message.key.remoteJid!, messageToSend3, {})
-						
-						
-						} catch {
-							console.log('erro ao enviar mensagem')
-
+				if(upsert.type === 'notify') {
+					for(const msg of upsert.messages) {
+						if(!msg.key.fromMe && doReplies) {
+							console.log('replying to', msg.key.remoteJid)
+							await sock!.readMessages([msg.key])
+							await sendMessageWTyping({ text: 'Hello there!' }, msg.key.remoteJid!)
 						}
+					}
 				}
-				}
-			
-		}
+			}
 
 			// messages updated like status delivered, message deleted etc.
 			if(events['messages.update']) {

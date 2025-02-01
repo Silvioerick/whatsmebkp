@@ -28,9 +28,12 @@ const encodeBinaryNodeInner = (
 		}
 	}
 
-	const pushBytes = (bytes: Uint8Array | Buffer | number[]) => (
-		bytes.forEach (b => buffer.push(b))
-	)
+	const pushBytes = (bytes: Uint8Array | Buffer | number[]) => {
+		for(const b of bytes) {
+			buffer.push(b)
+		}
+	}
+
 	const pushInt16 = (value: number) => {
 		pushBytes([(value >> 8) & 0xff, value & 0xff])
 	}
@@ -151,8 +154,7 @@ const encodeBinaryNodeInner = (
 			return false
 		}
 
-		for(let i = 0;i < str.length;i++) {
-			const char = str[i]
+		for(const char of str) {
 			const isInNibbleRange = char >= '0' && char <= '9'
 			if(!isInNibbleRange && char !== '-' && char !== '.') {
 				return false
@@ -161,22 +163,19 @@ const encodeBinaryNodeInner = (
 
 		return true
 	}
-
-	const isHex = (str: string) => {
-		if(str.length > TAGS.PACKED_MAX) {
-			return false
-		}
-
-		for(let i = 0;i < str.length;i++) {
-			const char = str[i]
-			const isInNibbleRange = char >= '0' && char <= '9'
-			if(!isInNibbleRange && !(char >= 'A' && char <= 'F') && !(char >= 'a' && char <= 'f')) {
-				return false
-			}
-		}
-
-		return true
-	}
+	
+	const isHex = (str) => {
+        	if (str.length > TAGS.PACKED_MAX) {
+            		return false;
+        	}
+        	for (const char of str) {
+            		const isInNibbleRange = char >= '0' && char <= '9';
+            		if (!isInNibbleRange && !(char >= 'A' && char <= 'F')) {
+                		return false;
+            		}
+        	}
+        	return true;
+    	};
 
 	const writeString = (str: string) => {
 		const tokenIndex = TOKEN_MAP[str]
@@ -189,7 +188,7 @@ const encodeBinaryNodeInner = (
 		} else if(isNibble(str)) {
 			writePackedBytes(str, 'nibble')
 		} else if(isHex(str)) {
-			writePackedBytes(str, 'hex')
+			writePackedBytes(str, 'hex') 
 		} else if(str) {
 			const decodedJid = jidDecode(str)
 			if(decodedJid) {

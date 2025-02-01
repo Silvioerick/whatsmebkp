@@ -101,6 +101,7 @@ class GroupCipher {
     } catch (e) {
       //console.log(e.stack);
       throw new Error('InvalidMessageException');
+      
     }
   }
 

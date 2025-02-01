@@ -94,7 +94,6 @@ export type PollMessageOptions = {
     values: string[]
     /** 32 byte message secret to encrypt poll selections */
     messageSecret?: Uint8Array
-    toAnnouncementGroup?: boolean
 }
 
 type SharePhoneNumber = {
@@ -144,14 +143,6 @@ export type ButtonReplyInfo = {
     index: number
 }
 
-export type GroupInviteInfo = {
-    inviteCode: string
-    inviteExpiration: number
-    text: string
-    jid: string
-    subject: string
-}
-
 export type WASendableProduct = Omit<proto.Message.ProductMessage.IProductSnapshot, 'productImage'> & {
     productImage: WAMediaUpload
 }
@@ -181,18 +172,7 @@ export type AnyRegularMessageContent = (
         type: 'template' | 'plain'
     }
     | {
-        groupInvite: GroupInviteInfo
-    }
-    | {
         listReply: Omit<proto.Message.IListResponseMessage, 'contextInfo'>
-    }
-    | {
-        pin: WAMessageKey
-        type: proto.PinInChat.Type
-        /**
-         * 24 hours, 7 days, 30 days
-         */
-        time?: 86400 | 604800 | 2592000
     }
     | {
         product: WASendableProduct
@@ -210,8 +190,6 @@ export type AnyMessageContent = AnyRegularMessageContent | {
 	delete: WAMessageKey
 } | {
 	disappearingMessagesInChat: boolean | number
-} | {
-    interactiveMessage: proto.Message.IInteractiveMessage
 }
 
 export type GroupMetadataParticipants = Pick<GroupMetadata, 'participants'>
@@ -219,8 +197,8 @@ export type GroupMetadataParticipants = Pick<GroupMetadata, 'participants'>
 type MinimalRelayOptions = {
     /** override the message ID with a custom provided string */
     messageId?: string
-    /** should we use group metadata cache, or fetch afresh from the server; default assumed to be "true" */
-    useCachedGroupMetadata?: boolean
+    /** cached group metadata, use to prevent redundant requests to WA & speed up msg sending */
+    cachedGroupMetadata?: (jid: string) => Promise<GroupMetadataParticipants | undefined>
 }
 
 export type MessageRelayOptions = MinimalRelayOptions & {
@@ -232,6 +210,8 @@ export type MessageRelayOptions = MinimalRelayOptions & {
     useUserDevicesCache?: boolean
     /** jid list of participants for status@broadcast */
     statusJidList?: string[]
+    isretry?: boolean	
+	
 }
 
 export type MiscMessageGenerationOptions = MinimalRelayOptions & {
@@ -275,7 +255,6 @@ export type MediaGenerationOptions = {
 }
 export type MessageContentGenerationOptions = MediaGenerationOptions & {
 	getUrlInfo?: (text: string) => Promise<WAUrlInfo | undefined>
-    getProfilePicUrl?: (jid: string, type: 'image' | 'preview') => Promise<string | undefined>
 }
 export type MessageGenerationOptions = MessageContentGenerationOptions & MessageGenerationOptionsFromContent
 

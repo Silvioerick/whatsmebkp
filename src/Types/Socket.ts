@@ -5,7 +5,6 @@ import type { Logger } from 'pino'
 import type { URL } from 'url'
 import { proto } from '../../WAProto'
 import { AuthenticationState, SignalAuthState, TransactionCapabilityOptions } from './Auth'
-import { GroupMetadata } from './GroupMetadata'
 import { MediaConnInfo } from './Message'
 import { SignalRepository } from './Signal'
 
@@ -40,6 +39,8 @@ export type SocketConfig = {
     logger: Logger
     /** version to connect with */
     version: WAVersion
+    /** Force the use of prekeys in groups */
+    forceGroupsPrekeys:	boolean
     /** override browser config */
     browser: WABrowserDescription
     /** agent used for fetch requests -- uploading/downloading media */
@@ -75,14 +76,13 @@ export type SocketConfig = {
     userDevicesCache?: CacheStore
     /** cache to store call offers */
     callOfferCache?: CacheStore
-    /** cache to track placeholder resends */
-    placeholderResendCache?: CacheStore
     /** width for link preview images */
     linkPreviewImageThumbnailWidth: number
     /** Should Baileys ask the phone for full history, will be received async */
     syncFullHistory: boolean
     /** Should baileys fire init queries automatically, default true */
     fireInitQueries: boolean
+
     /**
      * generate a high quality link preview,
      * entails uploading the jpegThumbnail to WA
@@ -118,9 +118,6 @@ export type SocketConfig = {
      * (solves the "this message can take a while" issue) can be retried
      * */
     getMessage: (key: proto.IMessageKey) => Promise<proto.IMessage | undefined>
-
-    /** cached group metadata, use to prevent redundant requests to WA & speed up msg sending */
-    cachedGroupMetadata: (jid: string) => Promise<GroupMetadata | undefined>
 
     makeSignalRepository: (auth: SignalAuthState) => SignalRepository
 
