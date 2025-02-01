@@ -1,14 +1,14 @@
-import { cacheManager } from 'cache-manager'
-import type { Cache } from 'cache-manager'
+import { caching } from 'cache-manager'
+import type { Cache, CacheStore } from 'cache-manager'
 import { proto } from '../../WAProto'
 import { AuthenticationCreds } from '../Types'
 import { BufferJSON, initAuthCreds } from '../Utils'
 import logger from '../Utils/logger'
 
-const makeCacheManagerAuthState = async(store: any, sessionKey: string) => {
+const makeCacheManagerAuthState = async(store: CacheStore, sessionKey: string) => {
 	const defaultKey = (file: string): string => `${sessionKey}:${file}`
 
-	const databaseConn = await cacheManager.caching(store)
+	const databaseConn: Cache = await caching(store)
 
 	const writeData = async(file: string, data: object) => {
 		let ttl: number | undefined = undefined
